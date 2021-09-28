@@ -174,7 +174,7 @@ private:
                         }
                     }
                 }
-                else {                                  // rest betweeb sets
+                else {                                  // rest between sets
                     ++_setsCompleted;
                     _repsCompleted = 0;
                     if (startSounds) {
@@ -242,7 +242,7 @@ public:
         }
     }
     
-    char * displayProgress() {
+    char * displayProgress(bool hms = false) {
         int length = 0;
         static char ret [100];
         char workRestChar;
@@ -255,7 +255,11 @@ public:
         // Interval Start Time
         length += sprintf(ret+length, "%s", displayTime(_durationStart));
         // Duration
-        length += sprintf(ret+length, ",%lu.%02lu", _duration/1000, _duration%1000/10);
+        if (hms) {
+            length += sprintf(ret+length, ",%s",displayTime( _duration));
+        } else {
+            length += sprintf(ret+length, ",%lu.%02lu", _duration/1000, _duration%1000/10);
+        }
         // Peak
         if (scaleReading > _peak && !timer.isPaused()) _peak = scaleReading;
         length += sprintf(ret+length, ",%lu.%02lu", _peak/100, _peak%100);
@@ -376,6 +380,7 @@ private:
             } else if (command[0] == 't' || command[0] == 'a' || command[0] == 'c') {    // --- tare or calibrate
                 if (command[0] == 't') {                                  // --- t for tare ---
                     scale.tare();  //Reset the scale to zero
+                    btSerial.println("m,Scale tare complete");
                 }
                 else if (command[0] == 'a' && command.length() >= 2) {    // --- a# for set calibration factor to # ---
                     calibration_factor = atoi(command.c_str()+1);
@@ -385,6 +390,7 @@ private:
                     calibration_factor = -scale.get_value(3) / calibration_weight;
                     btSerial.print("a,");
                     btSerial.println(calibration_factor);
+                    btSerial.println("m,Scale calibration complete");
                 }
                 scaleReading = 0.0;
                 scale.set_scale(calibration_factor); //Adjust to this calibration factor
@@ -393,17 +399,21 @@ private:
             } else if (command[0] == 'f' && command.length() == 2) {      // --- fy/fn for yes/no interval start sounds (not including countdown)
                 if (command[1] == 'y') {
                     setStartSounds(true); 
+                    btSerial.println("m,Start/Stop Sounds ON");
 //                    Serial.println("--- SOUND ON ---");
                 } else if (command[1] == 'n') {
                     setStartSounds(false);
+                    btSerial.println("m,Start/Stop Sounds OFF");
 //                    Serial.println("--- SOUND OFF ---");
                 }
             } else if (command[0] == 'o' && command.length() == 2 && timer.isPaused()) {      // --- oy/on for yes/no use countdown
                 if (command[1] == 'y') {
                     countdown.setUseCountdown(true);
+                    btSerial.println("m,Countdown ON");
 //                    Serial.println("--- COUNTDOWN ON ---");
                 } else if (command[1] == 'n') {
                     countdown.setUseCountdown(false);
+                    btSerial.println("m,Countdown OFF");
 //                    Serial.println("--- COUNTDOWN Off ---");
                 }
             reset();
@@ -424,6 +434,7 @@ private:
                     else if (i == 5) countdown.setSetRest((unsigned long) 1000*num);
                     i++;
                 }
+                btSerial.println("m,Repeater Protocol Updated");
             } else if (command[0] == 'm') {                              // --- m,#,#,#,# for set sound warning times 
                 int prevSepIndex = 0;                                   // (repWarning1,restWarning1,repWarning2,restWarning2)
                 int sepIndex = command.indexOf(',');
@@ -438,16 +449,20 @@ private:
                     else if (i == 3) intervalDat.setRestWarning2((unsigned long) 1000*num);
                     i++;
                 }
+                btSerial.println("m,Warning Times Updated");
             } else if (command[0] == 'p' && command.length() == 2) {      // --- py/pn for yes/no usePullInterval
                 if (command[1] == 'y') {
                     usePullIntervals = true; 
+                    btSerial.println("m,Automatic Intervals ON");
 //                    Serial.println("--- PULL INTERVAL ON ---");
                 } else if (command[1] == 'n') {
                     usePullIntervals = false;
+                    btSerial.println("m,Automatic Intervals OFF");
 //                    Serial.println("--- PULL INTERVAL OFF ---");
                 }
             } else if (command[0] == 'l' && command.length() >= 2) {      // --- l# for set threshold limit for usePullInterval to #
                 intervalDat.setThreshold((unsigned long) 100*atof(command.c_str()+1));
+                btSerial.println("m,Automatic Interval Threshold Updated");
             } else if (command[0] == 'b') {                              // --- b for break/skip countdown section
                 if (!timer.isPaused()) countdown.skip();
             } else if (command[0] == 'x' && timer.isPaused()) {          // --- x for reset timer
@@ -546,7 +561,7 @@ void loop() {
     // Reading
     length += sprintf(output+length, ",%lu.%02lu", scaleReading/100, scaleReading%100);
     // Interval Data
-    length += sprintf(output+length, ",%s", intervalDat.displayProgress());
+    length += sprintf(output+length, ",%s", intervalDat.displayProgress(true));
     
     Serial.println(output);
     btSerial.println(output);
